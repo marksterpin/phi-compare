@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cyber Adviser · Private Health Compare</title>
+<style>
+  /* ============================================================
+     DESIGN TOKENS
+     Palette: clinical slate base, a single "Cyber" teal as the
+     through-line, and the *real* Gold/Silver/Bronze/Basic tier
+     colours used as semantic structure (the government's own
+     classification carries the meaning, so it earns the colour).
+     ============================================================ */
+  :root{
+    --ink:#101826; --ink-2:#1c2738; --muted:#5a6473; --faint:#8a93a1;
+    --bg:#f5f6f8; --card:#ffffff; --line:#e4e7ec; --line-2:#eef0f3;
+    --teal:#0b7c8c; --teal-d:#085e6b; --teal-l:#e6f4f5; --teal-ink:#0a4750;
+    --gold:#c0922b; --silver:#8a93a3; --bronze:#a8693a; --basic:#6b7280;
+    --ok:#2e9e6b; --ok-bg:#e8f5ee; --warn:#c9881f; --warn-bg:#fbf2e0;
+    --no:#b04a4a; --no-bg:#f7eaea;
+    --r:14px; --r-sm:9px;
+    --shadow:0 1px 2px rgba(16,24,38,.05), 0 6px 18px rgba(16,24,38,.06);
+    --num:"tnum" 1, "lnum" 1;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background:var(--bg); color:var(--ink);
+    line-height:1.45; -webkit-font-smoothing:antialiased;
+  }
+  .num{font-variant-numeric:tabular-nums; font-feature-settings:var(--num)}
+  button{font-family:inherit; cursor:pointer}
+  a{color:var(--teal-d)}
+
+  /* ---------- header ---------- */
+  header{
+    background:var(--ink); color:#fff; padding:14px 20px;
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    border-bottom:3px solid var(--teal);
+  }
+  .brand{display:flex; align-items:center; gap:11px; min-width:0}
+  .mark{
+    width:34px;height:34px;border-radius:9px;flex:none;
+    background:linear-gradient(135deg,var(--teal) 0%, #0fb0b8 100%);
+    display:grid;place-items:center;font-weight:800;color:#022;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);
+  }
+  .mark span{font-size:18px;letter-spacing:-.5px}
+  .brand h1{font-size:15px;margin:0;font-weight:700;letter-spacing:.2px;line-height:1.1}
+  .brand p{font-size:11.5px;margin:0;color:#9fb6ba;letter-spacing:.3px;text-transform:uppercase}
+  .freshness{margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .chip{
+    display:inline-flex;align-items:center;gap:7px;font-size:12px;
+    background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);
+    padding:6px 11px;border-radius:999px;color:#dfe7e9;white-space:nowrap;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--faint);flex:none}
+  .dot.live{background:#37d39a;box-shadow:0 0 0 3px rgba(55,211,154,.18)}
+  .dot.sample{background:var(--warn)}
+
+  /* ---------- circumstances strip (the engine inputs) ---------- */
+  .circ{
+    background:var(--ink-2);color:#eaeef3;padding:13px 20px;
+    display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;
+    border-bottom:1px solid rgba(255,255,255,.06);
+  }
+  .circ .grp{display:flex;flex-direction:column;gap:5px}
+  .circ label{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:#9fb0bd;font-weight:600}
+  .circ input,.circ select{
+    background:#0d1420;color:#fff;border:1px solid #2b3a4d;border-radius:8px;
+    padding:8px 10px;font-size:13.5px;font-family:inherit;min-width:96px;
+  }
+  .circ input:focus,.circ select:focus{outline:2px solid var(--teal);outline-offset:0;border-color:var(--teal)}
+  .circ .hint{font-size:11px;color:#7c8a99;max-width:230px;margin-left:auto}
+
+  /* ---------- layout ---------- */
+  .wrap{display:grid;grid-template-columns:268px 1fr;gap:0;align-items:start}
+  aside{
+    position:sticky;top:0;align-self:start;background:var(--card);
+    border-right:1px solid var(--line);padding:18px;height:auto;
+  }
+  main{padding:18px 20px 60px;min-width:0}
+
+  .filtblock{margin-bottom:20px}
+  .filtblock h3{
+    font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);
+    margin:0 0 9px;font-weight:700;
+  }
+  .seg{display:flex;flex-wrap:wrap;gap:6px}
+  .seg button{
+    border:1px solid var(--line);background:#fff;color:var(--ink-2);
+    border-radius:999px;padding:6px 11px;font-size:12.5px;font-weight:500;transition:.12s;
+  }
+  .seg button:hover{border-color:var(--teal)}
+  .seg button[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
+  .tierseg button[data-tier][aria-pressed="true"]{color:#fff}
+  .check{display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0;color:var(--ink-2)}
+  .check input{width:15px;height:15px;accent-color:var(--teal)}
+  .rangerow{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px}
+  input[type=range]{width:100%;accent-color:var(--teal)}
+  .clearbtn{font-size:12px;background:none;border:none;color:var(--teal-d);text-decoration:underline;padding:0}
+
+  /* ---------- results header ---------- */
+  .resbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .count{font-size:14px;color:var(--muted)}
+  .count b{color:var(--ink);font-weight:700}
+  .sortsel{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)}
+  .sortsel select{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px;font-family:inherit}
+
+  /* ---------- MLS insight banner ---------- */
+  .mls{
+    background:linear-gradient(100deg,var(--teal-l),#f3fafb);
+    border:1px solid #cfe7e9;border-left:4px solid var(--teal);
+    border-radius:var(--r-sm);padding:12px 15px;margin-bottom:16px;font-size:13px;color:var(--teal-ink);
+    display:flex;gap:12px;align-items:flex-start;
+  }
+  .mls b{font-weight:700}
+  .mls .x{font-size:18px;line-height:1;flex:none}
+
+  /* ---------- product cards ---------- */
+  .cards{display:flex;flex-direction:column;gap:11px}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+    padding:15px 16px;box-shadow:var(--shadow);transition:.14s;
+    display:grid;grid-template-columns:1fr auto;gap:12px 18px;align-items:start;
+  }
+  .card:hover{border-color:#cfd5dd;transform:translateY(-1px)}
+  .card.sel{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal), var(--shadow)}
+  .cmain{min-width:0}
+  .ctop{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:3px}
+  .fund{font-size:12px;font-weight:700;color:var(--teal-d);text-transform:uppercase;letter-spacing:.4px}
+  .pname{font-size:16px;font-weight:700;margin:1px 0 6px;letter-spacing:-.2px}
+  .badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  .tier{
+    font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;color:#fff;letter-spacing:.3px;
+    display:inline-flex;align-items:center;gap:5px;
+  }
+  .tier[data-t="Gold"]{background:var(--gold)} .tier[data-t="Silver"]{background:var(--silver)}
+  .tier[data-t="Bronze"]{background:var(--bronze)} .tier[data-t="Basic"]{background:var(--basic)}
+  .tier[data-t="—"]{background:var(--faint)}
+  .tag{font-size:11px;font-weight:600;padding:3px 9px;border-radius:6px;background:var(--line-2);color:var(--ink-2)}
+  .tag.gap{background:var(--ok-bg);color:#1c6e4a}
+  .inclusions{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .inclusions .c{color:#1c6e4a;font-weight:600} .inclusions .r{color:#9a6a16;font-weight:600}
+  .cside{text-align:right;min-width:138px}
+  .price{font-size:24px;font-weight:800;letter-spacing:-.5px;line-height:1}
+  .price small{font-size:13px;font-weight:600;color:var(--muted)}
+  .pgross{font-size:12px;color:var(--faint);margin-top:3px;text-decoration:line-through}
+  .pmeta{font-size:11.5px;color:var(--muted);margin-top:4px}
+  .pmeta b{color:var(--ink-2)}
+  .cact{display:flex;gap:8px;justify-content:flex-end;margin-top:11px}
+  .btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;color:var(--ink-2);transition:.12s}
+  .btn:hover{border-color:var(--teal);color:var(--teal-d)}
+  .btn.primary{background:var(--teal);border-color:var(--teal);color:#fff}
+  .btn.primary:hover{background:var(--teal-d)}
+  .cmpwrap{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .cmpwrap input{width:16px;height:16px;accent-color:var(--teal)}
+
+  .empty{text-align:center;padding:60px 20px;color:var(--muted)}
+  .empty h3{color:var(--ink);margin:0 0 6px}
+
+  /* ---------- compare tray + modal ---------- */
+  .tray{
+    position:fixed;left:0;right:0;bottom:0;background:var(--ink);color:#fff;
+    padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    transform:translateY(120%);transition:.25s;z-index:40;box-shadow:0 -6px 24px rgba(0,0,0,.2);
+  }
+  .tray.show{transform:translateY(0)}
+  .tray .lab{font-size:13px;color:#aebcc7}
+  .traychips{display:flex;gap:8px;flex-wrap:wrap}
+  .traychip{background:rgba(255,255,255,.1);border-radius:999px;padding:5px 10px;font-size:12px;display:flex;gap:7px;align-items:center}
+  .traychip button{background:none;border:none;color:#cdd8e0;font-size:14px;line-height:1;padding:0}
+  .tray .btn.primary{margin-left:auto}
+
+  .overlay{position:fixed;inset:0;background:rgba(16,24,38,.55);z-index:50;display:none;padding:24px;overflow:auto}
+  .overlay.show{display:block}
+  .modal{
+    background:#fff;border-radius:16px;max-width:1000px;margin:0 auto;overflow:hidden;
+    box-shadow:0 24px 70px rgba(0,0,0,.4);
+  }
+  .modal header{background:var(--ink);border-bottom:3px solid var(--teal);justify-content:space-between}
+  .modal header h2{font-size:16px;margin:0;font-weight:700}
+  .modal .close{background:rgba(255,255,255,.1);border:none;color:#fff;width:32px;height:32px;border-radius:8px;font-size:18px}
+  .ctable{width:100%;border-collapse:collapse;font-size:13px}
+  .ctable th,.ctable td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line-2);vertical-align:top}
+  .ctable thead th{position:sticky;top:0;background:#fff;border-bottom:2px solid var(--line);z-index:1}
+  .ctable th.rowlab{font-weight:600;color:var(--muted);width:200px}
+  .ctable .sectionrow td{background:var(--bg);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .ctable td .big{font-size:18px;font-weight:800}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px}
+  .pill.c{background:var(--ok-bg);color:#1c6e4a} .pill.r{background:var(--warn-bg);color:#8a5a10} .pill.n{background:var(--no-bg);color:#8a3030}
+
+  footer{padding:22px 20px;color:var(--faint);font-size:11.5px;text-align:center;border-top:1px solid var(--line);margin-top:20px}
+  footer a{color:var(--muted)}
+
+  /* ---------- mobile ---------- */
+  .filtertoggle{display:none}
+  @media (max-width:860px){
+    .wrap{grid-template-columns:1fr}
+    aside{position:static;border-right:none;border-bottom:1px solid var(--line);display:none}
+    aside.open{display:block}
+    .filtertoggle{display:inline-flex;align-items:center;gap:7px}
+    .circ .hint{display:none}
+    .card{grid-template-columns:1fr;gap:10px}
+    .cside{text-align:left;border-top:1px dashed var(--line);padding-top:10px}
+    .cact{justify-content:flex-start}
+    .overlay{padding:0}
+    .modal{border-radius:0;min-height:100vh}
+    .ctable th.rowlab{width:120px}
+  }
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+  :focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+
+  /* ---- report form ---- */
+  .rfgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  #reportOverlay label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700;margin-bottom:5px}
+  #reportOverlay input,#reportOverlay textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:13.5px;color:var(--ink)}
+  #reportOverlay input:focus,#reportOverlay textarea:focus{outline:2px solid var(--teal);border-color:var(--teal)}
+  @media (max-width:600px){.rfgrid{grid-template-columns:1fr}}
+
+  /* ---- printable report (screen-hidden) ---- */
+  #report{display:none}
+  @media print{
+    body > *{display:none !important}
+    #report{display:block !important}
+    @page{size:A4;margin:16mm 14mm}
+  }
+  #report{font-size:11px;color:#16202e;line-height:1.5}
+  #report .rhead{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2.5px solid var(--teal);padding-bottom:10px;margin-bottom:14px}
+  #report .rtitle{font-size:19px;font-weight:800;letter-spacing:-.3px;color:var(--ink)}
+  #report .rbrand{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--teal-d);font-weight:700}
+  #report .rmeta{text-align:right;font-size:10.5px;color:var(--muted)}
+  #report h3{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--teal-d);border-bottom:1px solid var(--line);padding-bottom:4px;margin:16px 0 8px}
+  #report .pair{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;font-size:11px}
+  #report .pair div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dotted #d7dce3;padding:3px 0}
+  #report .pair b{color:#16202e;font-weight:600}
+  #report .rnotes{background:#f4fafb;border:1px solid #cfe7e9;border-radius:6px;padding:10px 12px;white-space:pre-wrap;font-size:11px}
+  #report table{width:100%;border-collapse:collapse;font-size:10px;margin-top:4px}
+  #report th,#report td{border:1px solid #d7dce3;padding:5px 7px;text-align:left;vertical-align:top}
+  #report thead th{background:#101826;color:#fff;font-weight:600}
+  #report th.rl{background:#f3f5f8;font-weight:600;color:#42505f;width:150px}
+  #report .sec td{background:#eef2f6;font-weight:700;text-transform:uppercase;font-size:9px;letter-spacing:.5px;color:#56636f}
+  #report .pp{font-weight:700} #report .pp.c{color:#1c6e4a} #report .pp.r{color:#8a5a10} #report .pp.n{color:#9a3030}
+  #report .fine{font-size:9.5px;color:#5a6473;margin-top:6px;line-height:1.5}
+  #report .rfoot{margin-top:14px;border-top:1px solid var(--line);padding-top:8px;font-size:9px;color:#7a838f;text-align:center}
+  #report *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="mark"><span>C</span></div>
+    <div>
+      <h1>Private Health Compare</h1>
+      <p>Cyber Adviser</p>
+    </div>
+  </div>
+  <div class="freshness">
+    <span class="chip" id="srcChip"><span class="dot" id="srcDot"></span><span id="srcText">Loading data…</span></span>
+  </div>
+</header>
+
+<!-- The engine inputs: these turn the feed's indicative premium into a personalised net figure -->
+<div class="circ">
+  <div class="grp">
+    <label for="cover">Cover for</label>
+    <select id="cover">
+      <option value="Single">Single</option>
+      <option value="Couple">Couple</option>
+      <option value="Family">Family</option>
+      <option value="SingleParent">Single parent</option>
+    </select>
+  </div>
+  <div class="grp">
+    <label for="income" id="incLab">Income (single)</label>
+    <input type="number" id="income" value="95000" step="1000" min="0">
+  </div>
+  <div class="grp">
+    <label for="kids">Dependent children</label>
+    <input type="number" id="kids" value="0" min="0" max="10" style="min-width:80px">
+  </div>
+  <div class="grp">
+    <label for="age">Age (oldest)</label>
+    <select id="age">
+      <option value="u65">Under 65</option>
+      <option value="6569">65–69</option>
+      <option value="70">70+</option>
+    </select>
+  </div>
+  <div class="grp">
+    <label for="lhc">LHC years &gt; age 30</label>
+    <input type="number" id="lhc" value="0" min="0" max="35" style="min-width:80px">
+  </div>
+  <div class="grp">
+    <label for="state">State</label>
+    <select id="state">
+      <option>QLD</option><option>NSW</option><option>VIC</option><option>SA</option>
+      <option>WA</option><option>TAS</option><option>ACT</option><option>NT</option>
+    </select>
+  </div>
+  <div class="hint">Net premium = feed premium − your rebate + any LHC loading. Figures are indicative (FY25/26 rebate &amp; surcharge); confirm exact pricing with the insurer.</div>
+</div>
+
+<div class="wrap">
+  <aside id="filters">
+    <div class="filtblock">
+      <button class="clearbtn" id="clearAll">Reset all filters</button>
+    </div>
+
+    <div class="filtblock">
+      <h3>Cover type</h3>
+      <div class="seg" id="typeSeg">
+        <button data-type="all" aria-pressed="true">All</button>
+        <button data-type="Combined">Combined</button>
+        <button data-type="Hospital">Hospital</button>
+        <button data-type="GeneralHealth">Extras</button>
+      </div>
+    </div>
+
+    <div class="filtblock">
+      <h3>Hospital tier</h3>
+      <div class="seg tierseg" id="tierSeg">
+        <button data-tier="all" aria-pressed="true">All</button>
+        <button data-tier="Gold" style="--c:var(--gold)">Gold</button>
+        <button data-tier="Silver">Silver</button>
+        <button data-tier="Bronze">Bronze</button>
+        <button data-tier="Basic">Basic</button>
+      </div>
+    </div>
+
+    <div class="filtblock">
+      <h3>Max net premium / mo</h3>
+      <div class="rangerow"><span>Any</span><span id="budgetVal" class="num">Any</span></div>
+      <input type="range" id="budget" min="0" max="600" step="10" value="0">
+    </div>
+
+    <div class="filtblock">
+      <h3>Max excess</h3>
+      <div class="seg" id="excessSeg">
+        <button data-ex="all" aria-pressed="true">Any</button>
+        <button data-ex="0">$0</button>
+        <button data-ex="250">≤$250</button>
+        <button data-ex="500">≤$500</button>
+        <button data-ex="750">≤$750</button>
+      </div>
+    </div>
+
+    <div class="filtblock">
+      <h3>Hospital must cover</h3>
+      <div id="catFilters"></div>
+    </div>
+
+    <div class="filtblock">
+      <h3>Extras must include</h3>
+      <div id="extrasFilters"></div>
+    </div>
+
+    <div class="filtblock">
+      <h3>Insurer</h3>
+      <select id="fundSel" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:13px">
+        <option value="all">All insurers</option>
+      </select>
+    </div>
+  </aside>
+
+  <main>
+    <div class="resbar">
+      <button class="btn filtertoggle" id="filtToggle">☰ Filters</button>
+      <div class="count"><b id="resCount">0</b> policies</div>
+      <div class="sortsel">
+        <label for="sort">Sort</label>
+        <select id="sort">
+          <option value="net">Net premium (low–high)</option>
+          <option value="netd">Net premium (high–low)</option>
+          <option value="tier">Tier (Gold→Basic)</option>
+          <option value="fund">Insurer A–Z</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="mlsBanner"></div>
+    <div class="cards" id="cards"></div>
+  </main>
+</div>
+
+<!-- compare tray -->
+<div class="tray" id="tray">
+  <span class="lab">Comparing</span>
+  <div class="traychips" id="trayChips"></div>
+  <button class="btn primary" id="openCompare">Compare side-by-side</button>
+</div>
+
+<!-- compare modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <header>
+      <h2>Side-by-side comparison</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn primary" id="exportPdf">Export client report (PDF)</button>
+        <button class="close" id="closeModal" aria-label="Close">×</button>
+      </div>
+    </header>
+    <div style="overflow:auto;max-height:calc(100vh - 60px)">
+      <table class="ctable" id="cmpTable"></table>
+    </div>
+  </div>
+</div>
+
+<!-- report details form -->
+<div class="overlay" id="reportOverlay">
+  <div class="modal" style="max-width:620px">
+    <header>
+      <h2>Prepare client report</h2>
+      <button class="close" id="closeReport" aria-label="Close">×</button>
+    </header>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:16px">
+      <div class="rfgrid">
+        <div><label>Client name</label><input id="rfClient" placeholder="e.g. Jane &amp; John Citizen"></div>
+        <div><label>Reference / file no.</label><input id="rfRef" placeholder="optional"></div>
+      </div>
+      <div>
+        <label>Adviser notes / recommendation</label>
+        <textarea id="rfNotes" rows="4" placeholder="Optional. Anything written here appears in the report and may constitute personal advice — issue under your AFSL with an SOA where required."></textarea>
+      </div>
+      <details>
+        <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)">Adviser &amp; licensee details</summary>
+        <div class="rfgrid" style="margin-top:12px">
+          <div><label>Adviser</label><input id="rfAdviser" value="Mark Sterpin"></div>
+          <div><label>Authorised Rep no.</label><input id="rfAR" value="413 231"></div>
+          <div><label>Practice</label><input id="rfPractice" value="Cyber Financial Pty Ltd (CAR 413 232)"></div>
+          <div><label>Licensee</label><input id="rfLicensee" value="Estrala Capital Pty Ltd, AFSL 485923"></div>
+        </div>
+      </details>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button class="btn" id="cancelReport">Cancel</button>
+        <button class="btn primary" id="genReport">Generate &amp; print PDF</button>
+      </div>
+      <p style="font-size:11.5px;color:var(--faint);margin:0">Tip: in the print dialog choose “Save as PDF”. Page breaks and colours are handled for A4.</p>
+    </div>
+  </div>
+</div>
+
+<!-- printable report (hidden on screen, shown only when printing) -->
+<div id="report"></div>
+
+<footer>
+  Data: <a href="https://www.privatehealth.gov.au" target="_blank" rel="noopener">PrivateHealth.gov.au</a> /
+  Private Health Insurance Ombudsman, used under CC BY 3.0 AU. Premiums are indicative comparison figures
+  and exclude individual loadings beyond LHC. Not personal advice. · Cyber Adviser
+</footer>
+
+<script>
+"use strict";
+
+/* =================================================================
+   CONFIG — where the app loads the feed from.
+   • EASIEST (GitHub Pages): keep "data" below. Host this HTML in the same repo
+     as the data/ folder and the app fetches data/phi-<STATE>-<TYPE>.json
+     same-origin — no CORS, no URL to edit, nothing to configure.
+   • Alternatively point RAW_BASE at an absolute raw URL, e.g.
+     "https://raw.githubusercontent.com/<you>/<repo>/main/data"
+   Offline / no feed found → the app uses SAMPLE_DATA below and flags it.
+   ================================================================= */
+const CONFIG = {
+  RAW_BASE: "data",          // relative path → works on GitHub Pages with no edits
+  PREMIUM_PERIOD: "month"    // PHIS premiums are treated as monthly; confirm vs feed
+};
+
+/* ---- FY2025/26 figures (from au-fy-figures). Edit yearly. ---- */
+const FY = {
+  // Private health insurance rebate %, by income tier × age band
+  rebate: {
+    single:  [101000, 118000, 158000],   // tier upper bounds (≤t0, ≤t1, ≤t2, else t3)
+    family:  [202000, 236000, 316000],
+    childAdj: 1500,                       // +per dependent child after the first
+    pct: {                                // [base, tier1, tier2, tier3]
+      u65:  [24.288, 16.192, 8.095, 0],
+      6569: [28.337, 20.240, 12.143, 0],
+      70:   [32.385, 24.288, 16.192, 0]
+    }
+  },
+  // Medicare Levy Surcharge %, same income tiers
+  mls: { rate: [0, 1.00, 1.25, 1.50] }
+};
+
+/* ---- canonical service vocab (keys match the PHIS XML Title tokens) ---- */
+const CATS = [
+  ["Cardiac","Heart & vascular"],["JointReplacementAll","Joint replacements"],
+  ["CataractEyeLens","Cataracts"],["Obstetric","Pregnancy & birth"],
+  ["AssistedReproductive","IVF / assisted reproduction"],["RenalDialysis","Dialysis"],
+  ["Rehabilitation","Rehabilitation"],["Psychiatric","Hospital psychiatric"],
+  ["Palliative","Palliative care"],["GastricBanding","Weight-loss surgery"],
+  ["PlasticNonCosmetic","Reconstructive surgery"],["Podiatric","Podiatric surgery"]
+];
+const EXTRAS = [
+  ["DentalGeneral","General dental"],["DentalMajor","Major dental"],
+  ["Optical","Optical"],["Physiotherapy","Physiotherapy"],
+  ["Chiropractic","Chiropractic"],["Psychology","Psychology"],
+  ["Podiatry","Podiatry"],["Orthodontic","Orthodontic"],
+  ["Acupuncture","Acupuncture"],["Massage","Remedial massage"],
+  ["HearingAids","Hearing aids"]
+];
+const CAT_LABEL = Object.fromEntries(CATS.map(c=>c));
+const EX_LABEL  = Object.fromEntries(EXTRAS.map(c=>c));
+const TIER_ORDER = {Gold:4,Silver:3,Bronze:2,Basic:1,"—":0};
+
+/* =================================================================
+   SAMPLE DATA — representative, clearly-flagged fallback so the tool
+   is fully functional offline. Replaced by the live feed when online.
+   ================================================================= */
+const SAMPLE_DATA = { sourceMonth:"sample", products:[
+  prod("Bupa","Gold Complete","Combined","Gold","QLD",228.40,118,500,true,
+    {Cardiac:"Covered",JointReplacementAll:"Covered",CataractEyeLens:"Covered",Obstetric:"Covered",AssistedReproductive:"Covered",RenalDialysis:"Covered",Rehabilitation:"Covered",Psychiatric:"Covered",Palliative:"Covered",GastricBanding:"Covered",PlasticNonCosmetic:"Covered",Podiatric:"Covered"},
+    {DentalGeneral:[true,800],DentalMajor:[true,1200],Optical:[true,250],Physiotherapy:[true,500],Chiropractic:[true,300],Psychology:[true,400],Podiatry:[true,300],Orthodontic:[true,1500],Acupuncture:[true,300],Massage:[true,300],HearingAids:[true,1000]}),
+  prod("Medibank","Silver Plus Everyday","Combined","Silver","QLD",172.10,92,500,true,
+    {Cardiac:"Covered",JointReplacementAll:"Covered",CataractEyeLens:"Covered",Obstetric:"NotCovered",AssistedReproductive:"NotCovered",RenalDialysis:"Covered",Rehabilitation:"Covered",Psychiatric:"Restricted",Palliative:"Covered",GastricBanding:"NotCovered",PlasticNonCosmetic:"Covered",Podiatric:"Covered"},
+    {DentalGeneral:[true,700],DentalMajor:[true,900],Optical:[true,200],Physiotherapy:[true,400],Chiropractic:[true,250],Psychology:[true,300],Podiatry:[true,250],Orthodontic:[false,0],Acupuncture:[true,200],Massage:[true,200],HearingAids:[false,0]}),
+  prod("nib","Silver Hospital","Hospital","Silver","QLD",118.60,92,750,true,
+    {Cardiac:"Covered",JointReplacementAll:"Covered",CataractEyeLens:"Covered",Obstetric:"NotCovered",AssistedReproductive:"NotCovered",RenalDialysis:"Covered",Rehabilitation:"Covered",Psychiatric:"Restricted",Palliative:"Covered",GastricBanding:"NotCovered",PlasticNonCosmetic:"Covered",Podiatric:"Covered"},{}),
+  prod("HCF","Bronze Plus Hospital","Hospital","Bronze","QLD",96.30,75,500,true,
+    {Cardiac:"Covered",JointReplacementAll:"Restricted",CataractEyeLens:"Covered",Obstetric:"NotCovered",AssistedReproductive:"NotCovered",RenalDialysis:"Restricted",Rehabilitation:"Restricted",Psychiatric:"Restricted",Palliative:"Restricted",GastricBanding:"NotCovered",PlasticNonCosmetic:"NotCovered",Podiatric:"Covered"},{}),
+  prod("HBF","Basic Plus Saver","Hospital","Basic","QLD",78.20,62,750,true,
+    {Cardiac:"NotCovered",JointReplacementAll:"NotCovered",CataractEyeLens:"NotCovered",Obstetric:"NotCovered",AssistedReproductive:"NotCovered",RenalDialysis:"Restricted",Rehabilitation:"Restricted",Psychiatric:"Restricted",Palliative:"Restricted",GastricBanding:"NotCovered",PlasticNonCosmetic:"NotCovered",Podiatric:"NotCovered"},{}),
+  prod("Australian Unity","Gold Family","Combined","Gold","QLD",241.70,124,500,true,
+    {Cardiac:"Covered",JointReplacementAll:"Covered",CataractEyeLens:"Covered",Obstetric:"Covered",AssistedReproductive:"Covered",RenalDialysis:"Covered",Rehabilitation:"Covered",Psychiatric:"Covered",Palliative:"Covered",GastricBanding:"Covered",PlasticNonCosmetic:"Covered",Podiatric:"Covered"},
+    {DentalGeneral:[true,750],DentalMajor:[true,1000],Optical:[true,230],Physiotherapy:[true,450],Chiropractic:[true,280],Psychology:[true,350],Podiatry:[true,280],Orthodontic:[true,1200],Acupuncture:[true,250],Massage:[true,250],HearingAids:[true,800]}),
+  prod("Frank","Just Extras","GeneralHealth","—","QLD",36.90,0,0,false,{},
+    {DentalGeneral:[true,600],DentalMajor:[true,500],Optical:[true,180],Physiotherapy:[true,300],Chiropractic:[true,200],Psychology:[true,200],Podiatry:[true,200],Orthodontic:[false,0],Acupuncture:[true,150],Massage:[true,150],HearingAids:[false,0]}),
+  prod("Medibank","Bronze Everyday","Hospital","Bronze","QLD",92.40,75,500,true,
+    {Cardiac:"Covered",JointReplacementAll:"Restricted",CataractEyeLens:"Restricted",Obstetric:"NotCovered",AssistedReproductive:"NotCovered",RenalDialysis:"Restricted",Rehabilitation:"Restricted",Psychiatric:"Restricted",Palliative:"Restricted",GastricBanding:"NotCovered",PlasticNonCosmetic:"NotCovered",Podiatric:"Covered"},{}),
+  prod("nib","Top Extras","GeneralHealth","—","QLD",54.20,0,0,false,{},
+    {DentalGeneral:[true,900],DentalMajor:[true,1300],Optical:[true,280],Physiotherapy:[true,550],Chiropractic:[true,350],Psychology:[true,450],Podiatry:[true,350],Orthodontic:[true,1600],Acupuncture:[true,350],Massage:[true,350],HearingAids:[true,1100]}),
+  prod("HCF","Gold Hospital","Hospital","Gold","QLD",184.90,118,500,true,
+    {Cardiac:"Covered",JointReplacementAll:"Covered",CataractEyeLens:"Covered",Obstetric:"Covered",AssistedReproductive:"Covered",RenalDialysis:"Covered",Rehabilitation:"Covered",Psychiatric:"Covered",Palliative:"Covered",GastricBanding:"Covered",PlasticNonCosmetic:"Covered",Podiatric:"Covered"},{}),
+  prod("HBF","Silver Combined","Combined","Silver","QLD",165.40,92,500,true,
+    {Cardiac:"Covered",JointReplacementAll:"Covered",CataractEyeLens:"Covered",Obstetric:"NotCovered",AssistedReproductive:"NotCovered",RenalDialysis:"Covered",Rehabilitation:"Covered",Psychiatric:"Restricted",Palliative:"Covered",GastricBanding:"NotCovered",PlasticNonCosmetic:"Covered",Podiatric:"Covered"},
+    {DentalGeneral:[true,650],DentalMajor:[true,850],Optical:[true,200],Physiotherapy:[true,380],Chiropractic:[true,240],Psychology:[true,280],Podiatry:[true,240],Orthodontic:[false,0],Acupuncture:[true,180],Massage:[true,180],HearingAids:[false,0]}),
+  prod("Bupa","Basic Accident Hospital","Hospital","Basic","QLD",71.50,62,500,true,
+    {Cardiac:"NotCovered",JointReplacementAll:"NotCovered",CataractEyeLens:"NotCovered",Obstetric:"NotCovered",AssistedReproductive:"NotCovered",RenalDialysis:"NotCovered",Rehabilitation:"Restricted",Psychiatric:"Restricted",Palliative:"Restricted",GastricBanding:"NotCovered",PlasticNonCosmetic:"NotCovered",Podiatric:"NotCovered"},{})
+]};
+
+function prod(fund,name,type,tier,state,premium,hosp,excess,mlsExempt,cats,extras){
+  const ex = {}; for(const k in (extras||{})){ ex[k]={covered:extras[k][0],limit:extras[k][1],waiting:""}; }
+  return {id:fund+name, fund, fundCode:fund, name, type, tier, state, scope:"Single",
+    premium, hospComponent:hosp, premiumRebated:premium, excessAdmission:excess, excessPolicy:excess*2,
+    gapCover:type!=="GeneralHealth", ambulance:"Full", copay:"None", mlsExempt,
+    categories:cats||{}, extras:ex, waiting:{PreExisting:"12 Month",Other:"2 Month"}, features:""};
+}
+
+/* =================================================================
+   STATE
+   ================================================================= */
+let DATA = SAMPLE_DATA;
+const F = { type:"all", tier:"all", excess:"all", budget:0, fund:"all",
+            cats:new Set(), extras:new Set(), sort:"net" };
+const selected = new Set();
+const $ = s => document.querySelector(s);
+const money = n => "$"+(n==null?"—":Number(n).toLocaleString("en-AU",{maximumFractionDigits:0}));
+const money2 = n => "$"+Number(n).toLocaleString("en-AU",{minimumFractionDigits:2,maximumFractionDigits:2});
+
+/* ---- the engine: personalised net premium ---- */
+function circ(){
+  return {
+    cover: $("#cover").value,
+    income: +$("#income").value || 0,
+    kids: +$("#kids").value || 0,
+    age: $("#age").value,
+    lhc: Math.min(35, Math.max(0, +$("#lhc").value || 0)),
+    state: $("#state").value
+  };
+}
+function incomeTier(){
+  const c = circ();
+  const fam = c.cover !== "Single";
+  let bounds = (fam ? FY.rebate.family : FY.rebate.single).slice();
+  if(fam && c.kids > 1) bounds = bounds.map(b => b + FY.rebate.childAdj*(c.kids-1));
+  const i = c.income;
+  if(i <= bounds[0]) return 0;
+  if(i <= bounds[1]) return 1;
+  if(i <= bounds[2]) return 2;
+  return 3;
+}
+function rebatePct(){ return FY.rebate.pct[circ().age][incomeTier()] / 100; }
+function mlsRate(){ return FY.mls.rate[incomeTier()] / 100; }
+function lhcLoad(){ return circ().lhc * 0.02; }
+
+function netPremium(p){
+  const base = p.premium || 0;                      // gross monthly, pre-rebate
+  const reb  = (p.type === "GeneralHealth") ? 0 : 0; // rebate applies to whole premium
+  const rebateAmt = base * rebatePct();              // rebate on the premium
+  const lhcAmt = (p.hospComponent || 0) * lhcLoad(); // LHC loads hospital component; no rebate on it
+  return Math.max(0, base - rebateAmt + lhcAmt);
+}
+function mlsAvoided(p){
+  // Hospital or Combined cover that is MLS-exempt removes the surcharge.
+  if(p.type === "GeneralHealth" || !p.mlsExempt) return 0;
+  return circ().income * mlsRate();   // annual
+}
+
+/* =================================================================
+   RENDER
+   ================================================================= */
+function normTier(t){
+  if(!t) return "—";
+  for(const k of ["Gold","Silver","Bronze","Basic"]) if(t.includes(k)) return k;
+  // legacy words
+  if(/top/i.test(t)) return "Gold";
+  if(/medium|mid/i.test(t)) return "Silver";
+  if(/budget|basic/i.test(t)) return "Basic";
+  return "—";
+}
+
+function passes(p){
+  if(F.type !== "all" && p.type !== F.type) return false;
+  if(F.tier !== "all" && normTier(p.tier) !== F.tier) return false;
+  if(F.fund !== "all" && p.fund !== F.fund) return false;
+  if(F.excess !== "all"){
+    const ex = p.excessAdmission ?? 9999;
+    if(ex > +F.excess) return false;
+  }
+  if(F.budget > 0 && netPremium(p) > F.budget) return false;
+  for(const c of F.cats){ if(p.categories[c] !== "Covered") return false; }
+  for(const e of F.extras){ if(!(p.extras[e] && p.extras[e].covered)) return false; }
+  return true;
+}
+
+function render(){
+  let list = DATA.products.filter(passes);
+  list.sort((a,b)=>{
+    if(F.sort==="net")  return netPremium(a)-netPremium(b);
+    if(F.sort==="netd") return netPremium(b)-netPremium(a);
+    if(F.sort==="tier") return TIER_ORDER[normTier(b.tier)]-TIER_ORDER[normTier(a.tier)] || netPremium(a)-netPremium(b);
+    if(F.sort==="fund") return a.fund.localeCompare(b.fund);
+    return 0;
+  });
+
+  $("#resCount").textContent = list.length;
+  renderMLS(list);
+
+  const wrap = $("#cards");
+  if(!list.length){
+    wrap.innerHTML = `<div class="empty"><h3>No policies match</h3><p>Loosen a filter — try a lower tier or fewer "must cover" items.</p></div>`;
+    return;
+  }
+
+  wrap.innerHTML = list.map(p=>{
+    const net = netPremium(p), gross = p.premium||0;
+    const t = normTier(p.tier);
+    const incl = summarise(p);
+    const sel = selected.has(p.id) ? "sel":"";
+    const checked = selected.has(p.id) ? "checked":"";
+    const tierBadge = (p.type==="GeneralHealth")
+      ? `<span class="tag">Extras only</span>`
+      : `<span class="tier" data-t="${t}">${p.tier||t}</span>`;
+    return `<div class="card ${sel}">
+      <div class="cmain">
+        <div class="ctop"><span class="fund">${p.fund}</span></div>
+        <div class="pname">${p.name}</div>
+        <div class="badges">
+          ${tierBadge}
+          <span class="tag">${p.type==="GeneralHealth"?"Extras":p.type}</span>
+          ${p.gapCover?`<span class="tag gap">Gap cover</span>`:``}
+          ${p.type!=="GeneralHealth"?`<span class="tag">Excess ${money(p.excessAdmission)}</span>`:``}
+        </div>
+        <div class="inclusions">${incl}</div>
+      </div>
+      <div class="cside">
+        <div class="price num">${money2(net)}<small>/mo</small></div>
+        ${net<gross?`<div class="pgross num">${money2(gross)}</div>`:``}
+        <div class="pmeta num">${money(net*12)}/yr · rebate ${(rebatePct()*100).toFixed(1)}%</div>
+        <div class="cact">
+          <label class="cmpwrap"><input type="checkbox" data-id="${p.id}" ${checked}>Compare</label>
+          <button class="btn" data-detail="${p.id}">Details</button>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  wrap.querySelectorAll("input[type=checkbox]").forEach(cb=>{
+    cb.onchange = ()=> toggleCompare(cb.dataset.id);
+  });
+  wrap.querySelectorAll("[data-detail]").forEach(b=>{
+    b.onclick = ()=>{ selected.clear(); selected.add(b.dataset.detail); openCompare(); };
+  });
+}
+
+function summarise(p){
+  if(p.type==="GeneralHealth"){
+    const inc = EXTRAS.filter(([k])=>p.extras[k]&&p.extras[k].covered).map(([k,l])=>l);
+    return inc.length ? `Includes: ${inc.slice(0,6).join(", ")}${inc.length>6?` +${inc.length-6} more`:""}` : "Extras cover";
+  }
+  const cov = CATS.filter(([k])=>p.categories[k]==="Covered").length;
+  const res = CATS.filter(([k])=>p.categories[k]==="Restricted").length;
+  const head = ["Obstetric","JointReplacementAll","Cardiac","CataractEyeLens"]
+    .filter(k=>p.categories[k]==="Covered").map(k=>`<span class="c">${CAT_LABEL[k]}</span>`);
+  return `${cov} categories fully covered${res?`, ${res} restricted`:""}. `
+    + (head.length?`Incl. ${head.join(", ")}.`:"");
+}
+
+function renderMLS(list){
+  const c = circ(), rate = mlsRate();
+  const el = $("#mlsBanner");
+  if(rate<=0){ el.innerHTML=""; return; }
+  const annual = c.income*rate;
+  // cheapest qualifying (hospital/combined, MLS-exempt) net annual cost in current list
+  const q = list.filter(p=>p.type!=="GeneralHealth"&&p.mlsExempt)
+                .map(p=>netPremium(p)*12).sort((a,b)=>a-b)[0];
+  const verdict = (q!=null)
+    ? `The cheapest qualifying hospital policy shown costs <b>${money(q)}/yr</b> net — `
+      + (q<annual
+          ? `<b>less than the surcharge</b>, so holding cover is cheaper than paying MLS.`
+          : `more than the surcharge — weigh the cover benefit against the ${money(q-annual)}/yr extra over just paying MLS.`)
+    : `No qualifying hospital policy is in the current results.`;
+  el.innerHTML = `<div class="mls"><span class="x">⚖︎</span><div>
+    At ${money(c.income)} income you'd pay an estimated <b>${money(annual)}/yr</b> Medicare Levy Surcharge
+    (${(rate*100).toFixed(2)}%) without an eligible hospital policy. ${verdict}
+  </div></div>`;
+}
+
+/* =================================================================
+   COMPARE
+   ================================================================= */
+function toggleCompare(id){
+  if(selected.has(id)) selected.delete(id);
+  else { if(selected.size>=3){ alert("Compare up to 3 policies at once."); render(); return; } selected.add(id); }
+  render(); renderTray();
+}
+function renderTray(){
+  const tray=$("#tray"), chips=$("#trayChips");
+  if(!selected.size){ tray.classList.remove("show"); return; }
+  tray.classList.add("show");
+  chips.innerHTML=[...selected].map(id=>{
+    const p=DATA.products.find(x=>x.id===id); if(!p) return "";
+    return `<span class="traychip">${p.fund} ${p.name}<button data-rm="${id}">×</button></span>`;
+  }).join("");
+  chips.querySelectorAll("[data-rm]").forEach(b=> b.onclick=()=>toggleCompare(b.dataset.rm));
+}
+function row(label, cells, section){
+  if(section) return `<tr class="sectionrow"><td colspan="${cells.length+1}">${label}</td></tr>`;
+  return `<tr><th class="rowlab">${label}</th>${cells.map(c=>`<td>${c}</td>`).join("")}</tr>`;
+}
+function coverPill(v){
+  if(v==="Covered") return `<span class="pill c">Covered</span>`;
+  if(v==="Restricted") return `<span class="pill r">Restricted</span>`;
+  return `<span class="pill n">Not covered</span>`;
+}
+function openCompare(){
+  const ps=[...selected].map(id=>DATA.products.find(x=>x.id===id)).filter(Boolean);
+  if(!ps.length) return;
+  const T=$("#cmpTable");
+  let html = `<thead><tr><th class="rowlab"></th>${ps.map(p=>`<th>${p.fund}<br><span style="font-weight:700">${p.name}</span></th>`).join("")}</tr></thead><tbody>`;
+  html += row("Premium", null, true);
+  html += row("Net / month", ps.map(p=>`<span class="big num">${money2(netPremium(p))}</span>`));
+  html += row("Net / year", ps.map(p=>`<span class="num">${money(netPremium(p)*12)}</span>`));
+  html += row("Feed premium (gross)", ps.map(p=>`<span class="num">${money2(p.premium)}</span>`));
+  html += row("Your rebate", ps.map(()=>`${(rebatePct()*100).toFixed(2)}%`));
+  html += row("MLS avoided / yr", ps.map(p=>{const m=mlsAvoided(p);return m?`<span class="num">${money(m)}</span>`:"—";}));
+  html += row("Cover type", ps.map(p=>p.type==="GeneralHealth"?"Extras":p.type));
+  html += row("Hospital tier", ps.map(p=>p.tier||"—"));
+  html += row("Excess (per admission)", ps.map(p=>p.type==="GeneralHealth"?"—":money(p.excessAdmission)));
+  html += row("Gap cover", ps.map(p=>p.gapCover?"Yes":"No"));
+
+  if(ps.some(p=>p.type!=="GeneralHealth")){
+    html += row("Hospital clinical categories", null, true);
+    for(const [k,label] of CATS){
+      html += row(label, ps.map(p=> p.type==="GeneralHealth" ? "—" : coverPill(p.categories[k]||"NotCovered")));
+    }
+  }
+  if(ps.some(p=>Object.keys(p.extras).length)){
+    html += row("Extras (annual limit)", null, true);
+    for(const [k,label] of EXTRAS){
+      html += row(label, ps.map(p=>{
+        const e=p.extras[k];
+        if(!e||!e.covered) return `<span class="pill n">—</span>`;
+        return e.limit?`<span class="num">${money(e.limit)}</span>`:`<span class="pill c">Yes</span>`;
+      }));
+    }
+  }
+  html += "</tbody>";
+  T.innerHTML = html;
+  $("#overlay").classList.add("show");
+}
+
+/* =================================================================
+   CLIENT REPORT (SOA-style) — populates #report and prints to PDF
+   ================================================================= */
+const AGE_LABEL = {u65:"Under 65", 6569:"65–69", 70:"70+"};
+const COVER_LABEL = {Single:"Single", Couple:"Couple", Family:"Family", SingleParent:"Single parent"};
+
+function pp(v){
+  if(v==="Covered") return `<span class="pp c">Covered</span>`;
+  if(v==="Restricted") return `<span class="pp r">Restricted</span>`;
+  return `<span class="pp n">Not covered</span>`;
+}
+function rrow(label, cells){ return `<tr><th class="rl">${label}</th>${cells.map(c=>`<td>${c}</td>`).join("")}</tr>`; }
+function rsec(label, span){ return `<tr class="sec"><td colspan="${span+1}">${label}</td></tr>`; }
+
+function generateReport(){
+  const ps=[...selected].map(id=>DATA.products.find(x=>x.id===id)).filter(Boolean);
+  if(!ps.length){ alert("Select at least one policy to include."); return; }
+  const c=circ(), n=ps.length;
+  const today=new Date().toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"});
+  const val=id=>$(id).value.trim();
+  const client=val("#rfClient")||"—", ref=val("#rfRef"), notes=val("#rfNotes");
+  const adviser=val("#rfAdviser"), ar=val("#rfAR"), practice=val("#rfPractice"), licensee=val("#rfLicensee");
+  const month = LIVE ? (FEED_MONTH||"latest") : "sample data";
+
+  let t = `<table><thead><tr><th class="rl"></th>${ps.map(p=>`<th>${p.fund} — ${p.name}</th>`).join("")}</tr></thead><tbody>`;
+  t += rsec("Pricing (personalised)", n);
+  t += rrow("Net premium / month", ps.map(p=>`<b>${money2(netPremium(p))}</b>`));
+  t += rrow("Net premium / year", ps.map(p=>money(netPremium(p)*12)));
+  t += rrow("Feed premium (gross)", ps.map(p=>money2(p.premium)));
+  t += rrow("Rebate applied", ps.map(()=>`${(rebatePct()*100).toFixed(2)}%`));
+  t += rrow("Est. MLS avoided / year", ps.map(p=>{const m=mlsAvoided(p);return m?money(m):"—";}));
+  t += rsec("Cover", n);
+  t += rrow("Type", ps.map(p=>p.type==="GeneralHealth"?"Extras":p.type));
+  t += rrow("Hospital tier", ps.map(p=>p.tier||"—"));
+  t += rrow("Excess (per admission)", ps.map(p=>p.type==="GeneralHealth"?"—":money(p.excessAdmission)));
+  t += rrow("Gap cover", ps.map(p=>p.gapCover?"Yes":"No"));
+  if(ps.some(p=>p.type!=="GeneralHealth")){
+    t += rsec("Hospital clinical categories", n);
+    for(const [k,label] of CATS)
+      t += rrow(label, ps.map(p=>p.type==="GeneralHealth"?"—":pp(p.categories[k]||"NotCovered")));
+  }
+  if(ps.some(p=>Object.keys(p.extras).length)){
+    t += rsec("Extras (annual limit)", n);
+    for(const [k,label] of EXTRAS)
+      t += rrow(label, ps.map(p=>{const e=p.extras[k];return (!e||!e.covered)?"—":(e.limit?money(e.limit):"Yes");}));
+  }
+  t += "</tbody></table>";
+
+  $("#report").innerHTML = `
+    <div class="rhead">
+      <div><div class="rbrand">Cyber Adviser</div><div class="rtitle">Health Cover Comparison Report</div></div>
+      <div class="rmeta">Prepared ${today}${ref?`<br>Ref: ${ref}`:""}</div>
+    </div>
+    <h3>Prepared for / by</h3>
+    <div class="pair">
+      <div><span>Client</span><b>${client}</b></div>
+      <div><span>Adviser</span><b>${adviser||"—"}${ar?` (AR ${ar})`:""}</b></div>
+      <div><span>Practice</span><b>${practice||"—"}</b></div>
+      <div><span>Licensee</span><b>${licensee||"—"}</b></div>
+    </div>
+    <h3>Circumstances used for these figures</h3>
+    <div class="pair">
+      <div><span>Cover for</span><b>${COVER_LABEL[c.cover]}</b></div>
+      <div><span>State</span><b>${c.state}</b></div>
+      <div><span>Income (rebate/MLS test)</span><b>${money(c.income)}</b></div>
+      <div><span>Dependent children</span><b>${c.kids}</b></div>
+      <div><span>Age (oldest)</span><b>${AGE_LABEL[c.age]}</b></div>
+      <div><span>LHC years over 30</span><b>${c.lhc} (${(lhcLoad()*100).toFixed(0)}% loading)</b></div>
+    </div>
+    <h3>Comparison</h3>
+    ${t}
+    ${notes?`<h3>Adviser notes &amp; recommendation</h3><div class="rnotes">${notes.replace(/[<>&]/g,s=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[s]))}</div>`:""}
+    <h3>Assumptions &amp; important information</h3>
+    <div class="fine">
+      • Premiums are indicative comparison figures from the Private Health Information Statement dataset (source month: ${month}). The actual premium depends on the individual's circumstances and must be confirmed with the insurer.<br>
+      • Net premium = feed premium less the Australian Government Rebate at the tier shown (FY2025/26), plus any Lifetime Health Cover loading applied to the hospital component (rebate is not payable on the loading).<br>
+      • Estimated MLS avoided is based on the income entered and FY2025/26 surcharge rates, and applies only to complying hospital cover held for the full year.<br>
+      • Rebate and MLS income thresholds are FY2025/26; family thresholds increase by $1,500 for each dependent child after the first.<br>
+      • Data: PrivateHealth.gov.au / Private Health Insurance Ombudsman, used under CC BY 3.0 AU.
+    </div>
+    <h3>Disclaimer</h3>
+    <div class="fine">
+      This report compares product features and indicative pricing. It is factual information only, unless the adviser notes above contain a personal recommendation, in which case that advice is provided by ${adviser||"the adviser"}${ar?` (AR ${ar})`:""}${licensee?` under ${licensee}`:""} and should be read together with a Statement of Advice. Consider each insurer's policy documents before making a decision. Figures may contain rounding.
+    </div>
+    <div class="rfoot">Generated by Cyber Adviser · Private Health Compare — ${today}</div>`;
+
+  $("#reportOverlay").classList.remove("show");
+  window.print();
+}
+
+/* =================================================================
+   WIRING
+   ================================================================= */
+function buildFilterChecks(){
+  $("#catFilters").innerHTML = CATS.map(([k,l])=>
+    `<label class="check"><input type="checkbox" data-cat="${k}">${l}</label>`).join("");
+  $("#extrasFilters").innerHTML = EXTRAS.slice(0,7).map(([k,l])=>
+    `<label class="check"><input type="checkbox" data-ex2="${k}">${l}</label>`).join("");
+  document.querySelectorAll("[data-cat]").forEach(cb=>cb.onchange=()=>{
+    cb.checked?F.cats.add(cb.dataset.cat):F.cats.delete(cb.dataset.cat); render();});
+  document.querySelectorAll("[data-ex2]").forEach(cb=>cb.onchange=()=>{
+    cb.checked?F.extras.add(cb.dataset.ex2):F.extras.delete(cb.dataset.ex2); render();});
+}
+function buildFundList(){
+  const funds=[...new Set(DATA.products.map(p=>p.fund))].sort();
+  $("#fundSel").innerHTML = `<option value="all">All insurers</option>`
+    + funds.map(f=>`<option>${f}</option>`).join("");
+}
+function seg(id, key, after){
+  $(id).querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    $(id).querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed","false"));
+    b.setAttribute("aria-pressed","true");
+    F[key] = b.dataset[Object.keys(b.dataset)[0]];
+    if(after) after(); else render();   // after() owns the re-render (may reload a shard)
+  });
+}
+
+function wire(){
+  buildFilterChecks();
+  seg("#typeSeg","type", loadView); seg("#tierSeg","tier"); seg("#excessSeg","excess");
+  $("#budget").oninput = e=>{ F.budget=+e.target.value; $("#budgetVal").textContent = F.budget?money(F.budget):"Any"; render(); };
+  $("#fundSel").onchange = e=>{ F.fund=e.target.value; render(); };
+  $("#sort").onchange = e=>{ F.sort=e.target.value; render(); };
+  ["#cover","#income","#kids","#age","#lhc"].forEach(s=>$(s).oninput = ()=>{ syncIncLab(); render(); });
+  $("#state").onchange = ()=> loadView();
+  $("#clearAll").onclick = ()=>{
+    F.type=F.tier=F.excess=F.fund="all"; F.budget=0; F.cats.clear(); F.extras.clear();
+    document.querySelectorAll('.seg button').forEach(b=>b.setAttribute("aria-pressed", b.dataset[Object.keys(b.dataset)[0]]==="all"?"true":"false"));
+    document.querySelectorAll('aside input[type=checkbox]').forEach(c=>c.checked=false);
+    $("#budget").value=0; $("#budgetVal").textContent="Any"; $("#fundSel").value="all"; loadView();
+  };
+  $("#filtToggle").onclick = ()=> $("#filters").classList.toggle("open");
+  $("#openCompare").onclick = openCompare;
+  $("#closeModal").onclick = ()=> $("#overlay").classList.remove("show");
+  $("#overlay").onclick = e=>{ if(e.target.id==="overlay") $("#overlay").classList.remove("show"); };
+  $("#exportPdf").onclick = ()=>{
+    if(!selected.size){ alert("Select at least one policy first."); return; }
+    $("#overlay").classList.remove("show");
+    $("#reportOverlay").classList.add("show");
+  };
+  $("#closeReport").onclick = $("#cancelReport").onclick = ()=> $("#reportOverlay").classList.remove("show");
+  $("#reportOverlay").onclick = e=>{ if(e.target.id==="reportOverlay") $("#reportOverlay").classList.remove("show"); };
+  $("#genReport").onclick = generateReport;
+  document.addEventListener("keydown", e=>{ if(e.key==="Escape"){ $("#overlay").classList.remove("show"); $("#reportOverlay").classList.remove("show"); } });
+}
+function syncIncLab(){
+  $("#incLab").textContent = circ().cover==="Single" ? "Income (single)" : "Income (combined)";
+}
+
+/* ---- data loading: per-(state,type) shards, cached, sample fallback ----
+   A shard is fetched only when its state+type slice is first needed, then
+   cached. Picking "Hospital" only ever downloads the hospital shard; "All"
+   lazy-loads the three types in parallel. Offline → built-in sample set. */
+const TYPES = ["Hospital","Combined","GeneralHealth"];
+const shardCache = new Map();   // "QLD-Hospital" -> products[]
+let LIVE = false, FEED_MONTH = "";
+
+function setSrc(state){
+  const dot=$("#srcDot"), txt=$("#srcText");
+  dot.className = "dot " + (LIVE?"live":"sample");
+  txt.textContent = LIVE ? `${state} · feed ${FEED_MONTH||"latest"}`
+                         : "Sample data — set CONFIG.RAW_BASE for live feed";
+}
+async function ensureShard(state, type){
+  const key = state+"-"+type;
+  if(shardCache.has(key)) return true;
+  try{
+    const r = await fetch(`${CONFIG.RAW_BASE}/phi-${key}.json`, {cache:"no-store"});
+    if(!r.ok) throw 0;
+    const d = await r.json();
+    shardCache.set(key, d.products||[]);
+    LIVE = true; FEED_MONTH = d.sourceMonth || FEED_MONTH;
+    return true;
+  }catch(e){ return false; }
+}
+async function loadView(){
+  const state = circ().state;
+  const want = (F.type==="all") ? TYPES : [F.type];
+  $("#srcText").textContent = "Loading "+state+"…";
+  const results = await Promise.all(want.map(t=>ensureShard(state,t)));
+
+  if(results.some(Boolean)){
+    DATA = {products: want.flatMap(t=>shardCache.get(state+"-"+t)||[])};
+  }else{
+    // no live shard for this view -> sample, filtered to the requested type(s)
+    LIVE = false;
+    DATA = {products: SAMPLE_DATA.products.filter(p=> F.type==="all" || p.type===F.type)};
+  }
+  setSrc(state);
+  selected.clear(); renderTray();
+  buildFundList(); render();
+}
+
+function init(){ wire(); syncIncLab(); loadView(); }
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
